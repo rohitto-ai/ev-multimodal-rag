@@ -1,3 +1,12 @@
+---
+title: EV Multimodal RAG
+emoji: 🚗
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # EV Multimodal RAG System — TATA Motors Electric Vehicle Knowledge Base
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
