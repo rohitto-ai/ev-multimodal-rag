@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ev-multimodal-rag
+    runtime: python
+    plan: starter          # 512 MB RAM — enough for CPU torch + chromadb
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        value: AIzaSyAItrZqc5EEcNbDRl3Cw52Us3CxEnx9uYc
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: CHROMA_PERSIST_DIR
+        value: ./chroma_db
+      - key: COLLECTION_NAME
+        value: ev_rag_multimodal
+      - key: CHUNK_SIZE
+        value: "1500"
+      - key: CHUNK_OVERLAP
+        value: "200"
+      - key: TOP_K
+        value: "5"
+      - key: MAX_FILE_SIZE_MB
+        value: "50"
+    healthCheckPath: /health
