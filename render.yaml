@@ -9,7 +9,7 @@ services:
       - key: GEMINI_API_KEY
         value: AIzaSyAItrZqc5EEcNbDRl3Cw52Us3CxEnx9uYc
       - key: GEMINI_MODEL
-        value: gemini-1.5-flash
+        value: gemini-2.0-flash
       - key: EMBEDDING_MODEL
         value: all-MiniLM-L6-v2
       - key: CHROMA_PERSIST_DIR
