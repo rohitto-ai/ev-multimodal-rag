@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # ── Gemini API ─────────────────────────────────────────────────────────────
     GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.0-flash-lite"
 
     # ── Embedding (local, sentence-transformers — no API key required) ─────────
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
