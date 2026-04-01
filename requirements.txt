@@ -1,0 +1,29 @@
+# ── Web Framework ──────────────────────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# ── Configuration ──────────────────────────────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# ── PDF Parsing ────────────────────────────────────────────────────────────────
+PyMuPDF==1.24.14          # fitz — page text and image extraction
+pdfplumber==0.11.4         # Structured table detection
+
+# ── Image handling ─────────────────────────────────────────────────────────────
+Pillow==11.0.0
+
+# ── Embeddings (local, no API required) ───────────────────────────────────────
+sentence-transformers==3.3.1
+torch==2.5.1               # Required by sentence-transformers (CPU-only is fine)
+
+# ── Vector Store ───────────────────────────────────────────────────────────────
+chromadb==0.5.23
+
+# ── LLM + VLM (Google Gemini — free tier via Google AI Studio) ────────────────
+google-generativeai==0.8.3
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+numpy==1.26.4

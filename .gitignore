@@ -1,0 +1,57 @@
+# ── Secrets & environment ──────────────────────────────────────────────────────
+.env
+*.env.local
+*.env.production
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# ── ChromaDB data (large, regeneratable) ──────────────────────────────────────
+chroma_db/
+
+# ── HuggingFace / sentence-transformers cache ──────────────────────────────────
+.cache/
+*.cache/
+
+# ── IDE / Editor ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+
+# ── Jupyter ────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Temporary files ────────────────────────────────────────────────────────────
+tmp/
+temp/
+*.tmp
