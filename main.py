@@ -86,11 +86,11 @@ async def lifespan(app: FastAPI):
     )
     app.state.vlm = vlm
 
-    # Initialise LLM (Gemini Text)
+    # Initialise LLM (Groq)
     logger.info("Initialising Language Model ...")
     llm = LanguageModel(
-        api_key=settings.GEMINI_API_KEY,
-        model_name=settings.GEMINI_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        model_name=settings.GROQ_MODEL,
     )
     app.state.llm = llm
 

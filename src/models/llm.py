@@ -1,5 +1,5 @@
 """
-Large Language Model (LLM) wrapper using Google Gemini 1.5 Flash.
+Large Language Model (LLM) wrapper using Groq (llama-3.3-70b-versatile).
 
 Responsible for generating grounded answers from retrieved EV document
 chunks. Uses a strict RAG prompt template to prevent hallucination and
@@ -9,7 +9,7 @@ ensure answers are sourced from the retrieved context.
 import logging
 from typing import List, Dict, Any
 
-import google.generativeai as genai
+from groq import Groq
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +44,17 @@ Answer:"""
 
 
 class LanguageModel:
-    """Wraps Gemini 1.5 Flash for retrieval-augmented text generation."""
+    """Wraps Groq LLM for retrieval-augmented text generation."""
 
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash") -> None:
+    def __init__(self, api_key: str, model_name: str = "llama-3.3-70b-versatile") -> None:
         """
         Initialise the LLM.
 
         Args:
-            api_key:    Google AI Studio API key.
-            model_name: Gemini model identifier.
+            api_key:    Groq API key.
+            model_name: Groq model identifier.
         """
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=_RAG_SYSTEM_PROMPT,
-        )
+        self._client = Groq(api_key=api_key)
         self._model_name = model_name
         logger.info("LanguageModel initialised with model '%s'.", model_name)
 
@@ -103,8 +99,14 @@ class LanguageModel:
         )
 
         try:
-            response = self._model.generate_content(prompt)
-            answer = response.text.strip()
+            response = self._client.chat.completions.create(
+                model=self._model_name,
+                messages=[
+                    {"role": "system", "content": _RAG_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            answer = response.choices[0].message.content.strip()
             logger.debug("LLM generated %d-char answer.", len(answer))
             return answer
         except Exception as exc:  # noqa: BLE001
@@ -113,5 +115,5 @@ class LanguageModel:
 
     @property
     def model_name(self) -> str:
-        """Return the underlying Gemini model identifier."""
+        """Return the underlying model identifier."""
         return self._model_name

@@ -22,7 +22,10 @@ torch==2.5.1               # Required by sentence-transformers (CPU-only is fine
 # ── Vector Store ───────────────────────────────────────────────────────────────
 chromadb==0.5.23
 
-# ── LLM + VLM (Google Gemini — free tier via Google AI Studio) ────────────────
+# ── LLM (Groq — free tier, no card required) ──────────────────────────────────
+groq==0.13.0
+
+# ── VLM (Google Gemini — used only for image summarisation) ───────────────────
 google-generativeai==0.8.3
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
