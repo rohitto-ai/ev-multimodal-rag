@@ -25,6 +25,31 @@ class HealthResponse(BaseModel):
     total_chunks: int = Field(..., description="Total number of chunks in the vector index.")
     indexed_filenames: List[str] = Field(default_factory=list, description="List of indexed PDF filenames.")
     uptime_seconds: float = Field(..., description="Seconds since the server started.")
+    gemini_configured: bool = Field(..., description="Whether Gemini clients are configured at runtime.")
+
+
+# ── /configure/gemini ───────────────────────────────────────────────────────
+
+class ConfigureGeminiRequest(BaseModel):
+    """Payload for runtime Gemini API-key configuration."""
+
+    api_key: str = Field(
+        ...,
+        min_length=20,
+        max_length=200,
+        description="Gemini API key entered by the user in the dashboard.",
+    )
+    model_name: Optional[str] = Field(
+        default=None,
+        description="Optional model override. Defaults to configured GEMINI_MODEL.",
+    )
+
+
+class ConfigureGeminiResponse(BaseModel):
+    """Response for runtime Gemini key configuration."""
+
+    message: str = Field(..., description="Human-readable status message.")
+    gemini_model: str = Field(..., description="Gemini model configured for runtime use.")
 
 
 # ── /ingest ───────────────────────────────────────────────────────────────────

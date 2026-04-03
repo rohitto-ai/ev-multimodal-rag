@@ -16,6 +16,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 from src.api.schemas import (
+    ConfigureGeminiRequest,
+    ConfigureGeminiResponse,
     DeleteResponse,
     DocumentInfo,
     DocumentListResponse,
@@ -25,6 +27,9 @@ from src.api.schemas import (
     QueryResponse,
 )
 from src.ingestion.parser import PDFParser
+from src.models.llm import LanguageModel
+from src.models.vlm import VisionModel
+from src.retrieval.retriever import Retriever
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,10 @@ def get_settings(request: Request):
     return request.app.state.settings
 
 
+def get_llm(request: Request):
+    return request.app.state.llm
+
+
 def get_start_time(request: Request):
     return request.app.state.start_time
 
@@ -69,7 +78,7 @@ def health_check(
     start_time: float = Depends(get_start_time),
     vector_store=Depends(get_vector_store),
     embedder=Depends(get_embedder),
-    settings=Depends(get_settings),
+    llm=Depends(get_llm),
 ) -> HealthResponse:
     """
     Returns current system health, model readiness, and vector index statistics.
@@ -82,12 +91,68 @@ def health_check(
 
     return HealthResponse(
         status="healthy",
-        gemini_model=settings.GEMINI_MODEL if settings.GEMINI_API_KEY else "unconfigured",
+        gemini_model=llm.model_name if llm is not None else "unconfigured",
         embedding_model=embedder.model_name,
         indexed_documents=len(indexed_filenames),
         total_chunks=vector_store.count(),
         indexed_filenames=indexed_filenames,
         uptime_seconds=uptime,
+        gemini_configured=llm is not None,
+    )
+
+
+@router.post(
+    "/configure/gemini",
+    response_model=ConfigureGeminiResponse,
+    summary="Configure Gemini API Key at Runtime",
+    tags=["System"],
+)
+def configure_gemini(
+    payload: ConfigureGeminiRequest,
+    request: Request,
+    settings=Depends(get_settings),
+    embedder=Depends(get_embedder),
+    vector_store=Depends(get_vector_store),
+) -> ConfigureGeminiResponse:
+    """
+    Configure Gemini API key and model without restarting the server.
+
+    This updates in-memory app state only. It does not persist the key to .env.
+    """
+    api_key = payload.api_key.strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="API key must not be empty.",
+        )
+
+    model_name = (payload.model_name or settings.GEMINI_MODEL).strip()
+    if not model_name:
+        model_name = "gemini-1.5-flash"
+
+    try:
+        vlm = VisionModel(api_key=api_key, model_name=model_name)
+        llm = LanguageModel(api_key=api_key, model_name=model_name)
+        retriever = Retriever(
+            vector_store=vector_store,
+            embedder=embedder,
+            llm=llm,
+            top_k=settings.TOP_K,
+        )
+    except Exception as exc:
+        logger.exception("Runtime Gemini configuration failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Gemini configuration failed: {exc}",
+        ) from exc
+
+    request.app.state.vlm = vlm
+    request.app.state.llm = llm
+    request.app.state.retriever = retriever
+
+    return ConfigureGeminiResponse(
+        message="Gemini configured successfully for this running server instance.",
+        gemini_model=model_name,
     )
 
 

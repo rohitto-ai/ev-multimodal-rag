@@ -391,6 +391,22 @@ def build_dashboard_html() -> str:
       <div class="panel card">
         <h2>Quick Tips</h2>
         <p class="helper">Use the browser page to validate the assignment end-to-end.</p>
+        <div class="form" style="margin-bottom:14px;">
+          <div class="field">
+            <label for="gemini-key">Gemini API key</label>
+            <input id="gemini-key" type="text" placeholder="Paste your Gemini API key" />
+          </div>
+          <div class="field">
+            <label for="gemini-model">Gemini model (optional)</label>
+            <input id="gemini-model" type="text" placeholder="gemini-1.5-flash" />
+          </div>
+          <div class="inline-actions">
+            <button class="btn primary" onclick="configureGemini()">Set Gemini key</button>
+            <button class="btn danger" onclick="clearOutput('config-output')">Clear</button>
+          </div>
+        </div>
+        <div class="output" id="config-output">Gemini is not configured yet.</div>
+        <div style="height:12px;"></div>
         <div class="output">
           1. Open /docs to verify the OpenAPI schema.
           2. Upload the sample PDF through the ingest form.
@@ -417,9 +433,53 @@ def build_dashboard_html() -> str:
         document.getElementById('health-chunks').textContent = `Chunks: ${data.total_chunks ?? '-'}`;
         document.getElementById('health-embedder').textContent = data.embedding_model || '-';
         document.getElementById('health-uptime').textContent = `Uptime: ${data.uptime_seconds ?? '-'}s`;
+        const configOutput = document.getElementById('config-output');
+        if (data.gemini_configured) {
+          configOutput.textContent = `Gemini ready (${data.gemini_model}). Ingest and query are enabled.`;
+        } else {
+          configOutput.textContent = 'Gemini is not configured yet. Enter your API key above to enable ingest/query.';
+        }
       } catch (error) {
         document.getElementById('health-status').textContent = 'offline';
         document.getElementById('health-model').textContent = 'Unable to reach /health';
+      }
+    }
+
+    async function configureGemini() {
+      const keyInput = document.getElementById('gemini-key');
+      const modelInput = document.getElementById('gemini-model');
+      const output = document.getElementById('config-output');
+
+      const apiKey = keyInput.value.trim();
+      const modelName = modelInput.value.trim();
+      if (!apiKey) {
+        output.textContent = 'Enter a Gemini API key first.';
+        return;
+      }
+
+      output.textContent = 'Configuring Gemini runtime clients...';
+
+      try {
+        const response = await fetch('/configure/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: apiKey,
+            model_name: modelName || null,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          output.textContent = data.detail || JSON.stringify(data, null, 2);
+          return;
+        }
+
+        output.textContent = data.message || 'Gemini configured.';
+        keyInput.value = '';
+        await refreshHealth();
+      } catch (error) {
+        output.textContent = `Gemini configuration failed: ${error}`;
       }
     }
 
@@ -462,6 +522,10 @@ def build_dashboard_html() -> str:
       try {
         const response = await fetch('/ingest', { method: 'POST', body: formData });
         const data = await response.json();
+        if (!response.ok) {
+          output.textContent = data.detail || JSON.stringify(data, null, 2);
+          return;
+        }
         output.textContent = JSON.stringify(data, null, 2);
         await refreshHealth();
         await loadDocuments();
@@ -487,6 +551,10 @@ def build_dashboard_html() -> str:
           body: JSON.stringify({ question }),
         });
         const data = await response.json();
+        if (!response.ok) {
+          output.textContent = data.detail || JSON.stringify(data, null, 2);
+          return;
+        }
         output.textContent = JSON.stringify(data, null, 2);
       } catch (error) {
         output.textContent = `Query failed: ${error}`;
