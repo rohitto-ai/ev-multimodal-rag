@@ -245,6 +245,18 @@ curl -X POST "http://localhost:8000/query" \
   -d '{"question": "What is the battery capacity and ARAI certified range of the Nexon EV Max?"}'
 ```
 
+### Step 8: Deploy to Render
+
+The repository includes a Render Blueprint in [render.yaml](render.yaml), so you can deploy a public webpage without creating extra infrastructure.
+
+1. Push the branch to GitHub and open the repository in Render.
+2. Create a new Blueprint instance from the repo and keep the free starter plan.
+3. After the service is created, set `GEMINI_API_KEY` in the Render dashboard if you want `/ingest` and `/query` to work publicly.
+4. Deploy the service and open the generated URL.
+5. Use the root page at `/` as the dashboard, `/docs` for Swagger UI, and `/health` to confirm the app is live.
+
+If `GEMINI_API_KEY` is not configured on Render, the dashboard and health endpoint will still load, but ingestion and query requests will return `503 Service Unavailable` until the key is added.
+
 ---
 
 ## API Documentation
