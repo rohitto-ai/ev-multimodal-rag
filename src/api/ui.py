@@ -286,6 +286,50 @@ def build_dashboard_html() -> str:
       font-size: 13px;
     }
 
+    .setup-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(5, 10, 18, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 9999;
+    }
+
+    .setup-modal.show {
+      display: flex;
+    }
+
+    .setup-sheet {
+      width: min(760px, 100%);
+      padding: 22px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(17, 34, 61, 0.98), rgba(10, 18, 32, 0.98));
+      box-shadow: var(--shadow);
+    }
+
+    .setup-sheet h3 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .setup-sheet p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .setup-req {
+      margin: 0 0 16px;
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
     @media (max-width: 1100px) {
       .hero, .grid { grid-template-columns: 1fr; }
     }
@@ -389,12 +433,12 @@ def build_dashboard_html() -> str:
       </div>
 
       <div class="panel card">
-        <h2>Quick Tips</h2>
-        <p class="helper">Use the browser page to validate the assignment end-to-end.</p>
+        <h2>Runtime API Setup</h2>
+        <p class="helper">Provide all required API inputs from the UI before ingesting or querying documents.</p>
         <div class="form" style="margin-bottom:14px;">
           <div class="field">
             <label for="gemini-key">Gemini API key</label>
-            <input id="gemini-key" type="text" placeholder="Paste your Gemini API key" />
+            <input id="gemini-key" type="password" placeholder="Paste your Gemini API key" />
           </div>
           <div class="field">
             <label for="gemini-model">Gemini model (optional)</label>
@@ -422,7 +466,38 @@ def build_dashboard_html() -> str:
     </p>
   </div>
 
+  <div id="setup-modal" class="setup-modal">
+    <div class="setup-sheet">
+      <h3>Complete API Setup First</h3>
+      <p>The app asks for all required API runtime inputs directly in UI. Configure them once per server session to unlock ingest and query.</p>
+      <ul class="setup-req">
+        <li><strong>Required:</strong> Gemini API key (Google AI Studio)</li>
+        <li><strong>Optional:</strong> Gemini model override (default: gemini-1.5-flash)</li>
+      </ul>
+      <div class="inline-actions">
+        <button class="btn primary" onclick="focusSetupForm()">Open Setup Panel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let geminiConfigured = false;
+
+    function focusSetupForm() {
+      const keyInput = document.getElementById('gemini-key');
+      keyInput.focus();
+      keyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function toggleSetupModal(show) {
+      const modal = document.getElementById('setup-modal');
+      if (show) {
+        modal.classList.add('show');
+      } else {
+        modal.classList.remove('show');
+      }
+    }
+
     async function refreshHealth() {
       try {
         const response = await fetch('/health');
@@ -433,6 +508,8 @@ def build_dashboard_html() -> str:
         document.getElementById('health-chunks').textContent = `Chunks: ${data.total_chunks ?? '-'}`;
         document.getElementById('health-embedder').textContent = data.embedding_model || '-';
         document.getElementById('health-uptime').textContent = `Uptime: ${data.uptime_seconds ?? '-'}s`;
+        geminiConfigured = !!data.gemini_configured;
+        toggleSetupModal(!geminiConfigured);
         const configOutput = document.getElementById('config-output');
         if (data.gemini_configured) {
           configOutput.textContent = `Gemini ready (${data.gemini_model}). Ingest and query are enabled.`;
@@ -454,6 +531,7 @@ def build_dashboard_html() -> str:
       const modelName = modelInput.value.trim();
       if (!apiKey) {
         output.textContent = 'Enter a Gemini API key first.';
+        focusSetupForm();
         return;
       }
 
@@ -483,6 +561,20 @@ def build_dashboard_html() -> str:
       }
     }
 
+    async function requireApiSetup() {
+      if (geminiConfigured) {
+        return true;
+      }
+      await refreshHealth();
+      if (geminiConfigured) {
+        return true;
+      }
+      document.getElementById('config-output').textContent =
+        'API setup required: please enter your Gemini API key in Runtime API Setup.';
+      focusSetupForm();
+      return false;
+    }
+
     async function loadDocuments() {
       const container = document.getElementById('documents-list');
       container.innerHTML = '<div class="output">Loading documents...</div>';
@@ -510,6 +602,10 @@ def build_dashboard_html() -> str:
     async function ingestPdf() {
       const fileInput = document.getElementById('pdf-file');
       const output = document.getElementById('ingest-output');
+      if (!(await requireApiSetup())) {
+        output.textContent = 'Ingestion blocked until required API setup is completed.';
+        return;
+      }
       if (!fileInput.files.length) {
         output.textContent = 'Choose a PDF file first.';
         return;
@@ -537,6 +633,10 @@ def build_dashboard_html() -> str:
     async function queryRag() {
       const question = document.getElementById('question').value.trim();
       const output = document.getElementById('query-output');
+      if (!(await requireApiSetup())) {
+        output.textContent = 'Query blocked until required API setup is completed.';
+        return;
+      }
       if (!question) {
         output.textContent = 'Enter a question first.';
         return;
