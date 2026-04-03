@@ -24,9 +24,11 @@ from contextlib import asynccontextmanager
 import google.generativeai as genai
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from config import settings
 from src.api.routes import router
+from src.api.ui import build_dashboard_html
 from src.ingestion.embedder import Embedder
 from src.models.llm import LanguageModel
 from src.models.vlm import VisionModel
@@ -57,13 +59,17 @@ async def lifespan(app: FastAPI):
     # Record startup time for uptime reporting
     app.state.start_time = time.time()
 
-    # Validate Gemini API key early
-    try:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        logger.info("Gemini API key validated.")
-    except Exception as exc:
-        logger.error("Gemini API key configuration failed: %s", exc)
-        raise
+    # Validate Gemini API key when present; keep the app bootable without it so
+    # the dashboard and schema can still be explored locally.
+    if settings.GEMINI_API_KEY:
+        try:
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            logger.info("Gemini API key validated.")
+        except Exception as exc:
+            logger.error("Gemini API key configuration failed: %s", exc)
+            raise
+    else:
+        logger.warning("GEMINI_API_KEY is not set. Ingest and query endpoints will return 503 until configured.")
 
     # Load embedding model (sentence-transformers, local)
     logger.info("Loading embedding model '%s' ...", settings.EMBEDDING_MODEL)
@@ -80,27 +86,33 @@ async def lifespan(app: FastAPI):
 
     # Initialise VLM (Gemini Vision)
     logger.info("Initialising Vision Language Model ...")
-    vlm = VisionModel(
-        api_key=settings.GEMINI_API_KEY,
-        model_name=settings.GEMINI_MODEL,
-    )
+    vlm = None
+    if settings.GEMINI_API_KEY:
+        vlm = VisionModel(
+            api_key=settings.GEMINI_API_KEY,
+            model_name=settings.GEMINI_MODEL,
+        )
     app.state.vlm = vlm
 
-    # Initialise LLM (Groq)
+    # Initialise LLM (Gemini)
     logger.info("Initialising Language Model ...")
-    llm = LanguageModel(
-        api_key=settings.GROQ_API_KEY,
-        model_name=settings.GROQ_MODEL,
-    )
+    llm = None
+    if settings.GEMINI_API_KEY:
+        llm = LanguageModel(
+            api_key=settings.GEMINI_API_KEY,
+            model_name=settings.GEMINI_MODEL,
+        )
     app.state.llm = llm
 
     # Wire retriever pipeline
-    retriever = Retriever(
-        vector_store=vector_store,
-        embedder=embedder,
-        llm=llm,
-        top_k=settings.TOP_K,
-    )
+    retriever = None
+    if llm is not None:
+        retriever = Retriever(
+            vector_store=vector_store,
+            embedder=embedder,
+            llm=llm,
+            top_k=settings.TOP_K,
+        )
     app.state.retriever = retriever
 
     # Expose settings for route dependency injection
@@ -156,12 +168,18 @@ app.include_router(router, prefix="")
 
 
 # ── Root redirect ──────────────────────────────────────────────────────────────
-@app.get("/", include_in_schema=False)
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
 def root():
+    return build_dashboard_html()
+
+
+@app.get("/api", include_in_schema=False)
+def api_root():
     return {
         "message": "EV Multimodal RAG System is running.",
         "docs": "/docs",
         "health": "/health",
+        "ui": "/",
     }
 
 

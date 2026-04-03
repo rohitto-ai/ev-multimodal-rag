@@ -1,5 +1,5 @@
 """
-Large Language Model (LLM) wrapper using Groq (llama-3.3-70b-versatile).
+Large Language Model (LLM) wrapper using Google Gemini.
 
 Responsible for generating grounded answers from retrieved EV document
 chunks. Uses a strict RAG prompt template to prevent hallucination and
@@ -7,9 +7,9 @@ ensure answers are sourced from the retrieved context.
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-from groq import Groq
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +44,21 @@ Answer:"""
 
 
 class LanguageModel:
-    """Wraps Groq LLM for retrieval-augmented text generation."""
+    """Wraps Gemini for retrieval-augmented text generation."""
 
-    def __init__(self, api_key: str, model_name: str = "llama-3.3-70b-versatile") -> None:
+    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash") -> None:
         """
         Initialise the LLM.
 
         Args:
-            api_key:    Groq API key.
-            model_name: Groq model identifier.
+            api_key:    Google Gemini API key.
+            model_name: Gemini model identifier.
         """
-        self._client = Groq(api_key=api_key)
+        genai.configure(api_key=api_key)
+        self._model = genai.GenerativeModel(
+            model_name=model_name,
+            system_instruction=_RAG_SYSTEM_PROMPT,
+        )
         self._model_name = model_name
         logger.info("LanguageModel initialised with model '%s'.", model_name)
 
@@ -99,14 +103,8 @@ class LanguageModel:
         )
 
         try:
-            response = self._client.chat.completions.create(
-                model=self._model_name,
-                messages=[
-                    {"role": "system", "content": _RAG_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            answer = response.choices[0].message.content.strip()
+            response = self._model.generate_content(prompt)
+            answer = response.text.strip()
             logger.debug("LLM generated %d-char answer.", len(answer))
             return answer
         except Exception as exc:  # noqa: BLE001

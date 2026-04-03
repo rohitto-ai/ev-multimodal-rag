@@ -88,38 +88,53 @@ is on or what document it lives in.
 ### System Architecture Diagram
 
 ```mermaid
-flowchart TD
-    subgraph Ingestion Pipeline
-        A[PDF Upload\n POST /ingest] --> B[PDFParser\nPyMuPDF + pdfplumber]
-        B --> C[Text Chunks]
-        B --> D[Table Chunks\nMarkdown format]
-        B --> E[Raw Images]
-        E --> F[VisionModel\nGemini 1.5 Flash]
-        F --> G[Image Description\nChunks]
-        C & D & G --> H[Embedder\nsentence-transformers\nall-MiniLM-L6-v2]
-        H --> I[(ChromaDB\nPersistent Vector Store\nCosine Similarity)]
+flowchart LR
+  classDef apiCall fill:#8ec5ff,stroke:#4b86c2,stroke-width:1px,color:#0b2740;
+  classDef lightBox fill:#ffffff,stroke:#6f6f6f,stroke-width:1px,color:#1f1f1f;
+  classDef note fill:#f8f8f8,stroke:#b5b5b5,stroke-dasharray: 4 3,color:#222;
+
+  subgraph Notes[ ]
+    Y1[YAML\nParser = docling\nChunking = hybrid chunker\nEmbedding = IBM Granite\nVLM = ...\nLLM = ...\nGuardrail = ...]:::note
+    Y2[YAML\nParser = docling\nChunking = hybrid chunker\nEmbedding = IBM Granite\nVLM = ...\nLLM = ...\nGuardrail = ...]:::note
+    Y3[Flagship as baseline\nGemini / ChatGPT / Claude]:::apiCall
+  end
+
+  subgraph Production[Production Grade RAG]
+    O[OBSERVABILITY PLATFORM]:::apiCall
+
+    subgraph Ingest[ ]
+      D[Multi-Modal PDF\nText\nTables\nImages]:::lightBox --> P[Docling]:::apiCall
+      P --> T[Text]:::lightBox
+      P --> I[Images]:::lightBox
+      P --> B[Tables]:::lightBox
+      T --> C[hybridChunker\nIBM Granite Embedder (30M)]:::apiCall
+      I --> C
+      B --> C
+      C --> V[(Vector Database)]:::lightBox
     end
 
-    subgraph Query Pipeline
-        J[Question\n POST /query] --> K[Embedder\nembed question]
-        K --> L[ChromaDB\ntop-K retrieval\nacross all chunk types]
-        L --> M[Retrieved Chunks\ntext + table + image]
-        M --> N[LanguageModel\nGemini 1.5 Flash\nRAG Prompt]
-        N --> O[Grounded Answer\n+ Source References]
-    end
+    A[API Server]:::apiCall
+    U[UI - Web based App]:::lightBox
 
-    subgraph FastAPI Endpoints
-        P[GET /health]
-        Q[POST /ingest]
-        R[POST /query]
-        S[GET /documents]
-        T[DELETE /documents/filename]
-        U[GET /docs\nSwagger UI]
-    end
+    A -->|Data Ingestion| D
+    A -->|Data Fetch| V
+    A -->|Query| F[FAISS\nGranite\nText Based\nVision Based]:::apiCall
+    V -->|Similarity Search| F
+    U <--> A
+  end
 
-    A -.-> Q
-    J -.-> R
+  O --- Production
 ```
+
+Blue blocks indicate API calls or external services, matching the highlighted nodes in the PNG reference.
+
+This repository keeps the same overall flow, but the concrete implementation is mapped to the local stack in code:
+
+- `Docling` in the PNG corresponds to [src/ingestion/parser.py](src/ingestion/parser.py), which uses PyMuPDF + pdfplumber.
+- `IBM Granite Embedder` in the PNG corresponds to [src/ingestion/embedder.py](src/ingestion/embedder.py), which uses sentence-transformers.
+- `Vector Database` in the PNG corresponds to [src/retrieval/vector_store.py](src/retrieval/vector_store.py), which uses ChromaDB.
+- `FAISS` in the PNG corresponds to the retrieval path in [src/retrieval/retriever.py](src/retrieval/retriever.py), implemented against ChromaDB.
+- `API Server` and `UI - Web based App` in the PNG correspond to the FastAPI app in [main.py](main.py) and the generated `/docs` UI.
 
 ### Ingestion Flow
 
@@ -200,7 +215,7 @@ cp .env.example .env
 Open `.env` and set your Gemini API key:
 
 ```env
-GEMINI_API_KEY=your_actual_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 All other settings have sensible defaults and do not need to be changed for a basic setup.
@@ -211,7 +226,9 @@ All other settings have sensible defaults and do not need to be changed for a ba
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The server starts at `http://localhost:8000`. The Swagger UI is at `http://localhost:8000/docs`.
+The server starts at `http://localhost:8000`. The browser dashboard is at `http://localhost:8000/`, and the Swagger UI is at `http://localhost:8000/docs`.
+
+If `GEMINI_API_KEY` is not set, the dashboard and health endpoint still load, but `/ingest` and `/query` will return `503 Service Unavailable` until the key is configured.
 
 ### Step 6: Ingest the Sample Document
 

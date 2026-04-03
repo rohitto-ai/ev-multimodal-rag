@@ -82,7 +82,7 @@ def health_check(
 
     return HealthResponse(
         status="healthy",
-        gemini_model=settings.GEMINI_MODEL,
+        gemini_model=settings.GEMINI_MODEL if settings.GEMINI_API_KEY else "unconfigured",
         embedding_model=embedder.model_name,
         indexed_documents=len(indexed_filenames),
         total_chunks=vector_store.count(),
@@ -119,6 +119,12 @@ async def ingest_document(
 
     Re-ingesting the same filename will overwrite previous chunks for that file.
     """
+    if vlm is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gemini is not configured. Set GEMINI_API_KEY before ingesting documents.",
+        )
+
     # ── Validate file type ────────────────────────────────────────────────────
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
@@ -264,6 +270,12 @@ def query_documents(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No documents have been indexed yet. Please POST to /ingest first.",
+        )
+
+    if retriever is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gemini is not configured. Set GEMINI_API_KEY before querying documents.",
         )
 
     try:

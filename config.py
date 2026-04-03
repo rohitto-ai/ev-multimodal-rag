@@ -15,13 +15,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Gemini API (VLM only — image summarisation) ────────────────────────────
-    GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite"
-
-    # ── Groq API (LLM — text generation, free tier) ────────────────────────────
-    GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # ── Gemini API (LLM and VLM) ───────────────────────────────────────────────
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
 
     # ── Embedding (local, sentence-transformers — no API key required) ─────────
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
